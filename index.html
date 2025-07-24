@@ -26,8 +26,9 @@ a { color: #FFD700; }
 <br>
 <div id="output"></div>
 
-<script>
-const GIST_RAW_URL = "https://gist.githubusercontent.com/Maksym-Nesterov/17c348b49eafbf6ff47420c2727ca454/raw";
+<script 
+  const GIST_RAW_URL = "https://gist.githubusercontent.com/Maksym-Nesterov/17c348b49eafbf6ff47420c2727ca454/raw";
+
 
 let data = [];
 
@@ -104,7 +105,7 @@ function showData(ma, cable) {
         line = `<div><span class="key">${key}:</span> <span class="value"><a href="${value}" target="_blank">Відкрити фото</a></span></div>`;
       }
 
-      if (["referencnirez", "nulovyrez", "mirax","šteker","ohrnout","kalibrace(lera)"].includes(kNorm)) {
+      if (["referencnirez", "nulovyrez", "mirax"].includes(kNorm)) {
         line = `<div class="green-block"><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
       } else if (["modul", "kavita"].includes(kNorm)) {
         line = `<div><span class="key">${key}:</span> <span class="value" style="color:red;">${value}</span></div>`;
