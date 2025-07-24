@@ -10,7 +10,7 @@ input, button { margin: 5px; padding: 5px; font-size: 12px; }
 .group { padding: 10px; margin: 10px 0; border-radius: 5px; line-height: 1.4; transition: background 0.3s ease; }
 .first { background: #2e3b4e; color: #fff; border-left: 4px solid #FFD700; }
 .sh { background: #005f5f; color: #b3ffff; border-left: 4px solid #00CED1; }
-.il { background: #FF8C00; color: #fff; border-left: 4px solid #FF8C00; } /* томно-оранжевий */
+.il { background: #FF8C00; color: #fff; border-left: 4px solid #FF8C00; }
 .al { background: #004d00; color: #b3ffb3; border-left: 4px solid #32CD32; }
 .other { background: #3a3a3a; color: #ccc; border-left: 4px solid #FFD700; }
 .key { font-weight: bold; display: inline-block; min-width: 100px; vertical-align: top; word-break: break-word; }
@@ -26,10 +26,8 @@ a { color: #FFD700; }
 <br>
 <div id="output"></div>
 
-<script 
-  const GIST_RAW_URL = "https://gist.githubusercontent.com/Maksym-Nesterov/17c348b49eafbf6ff47420c2727ca454/raw";
-
-
+<script>
+const GIST_RAW_URL = "https://gist.githubusercontent.com/Maksym-Nesterov/17c348b49eafbf6ff47420c2727ca454/raw";
 
 let data = [];
 
@@ -71,7 +69,17 @@ function findMA() {
     return;
   }
 
-  const cables = [...new Set(matches.map(m => m['kabely '] || m['kabel'] || ""))].filter(c => c);
+  const cableSet = new Set();
+  const cables = [];
+
+  matches.forEach(m => {
+    const raw = (m['kabely '] || m['kabel'] || '').trim();
+    const norm = raw.toLowerCase();
+    if (norm && !cableSet.has(norm)) {
+      cableSet.add(norm);
+      cables.push(raw); // зберігаємо оригінальне значення для відображення
+    }
+  });
 
   if (cables.length > 1) {
     outputDiv.innerHTML = `<p>Знайдено кілька кабелів для MA ${ma}:</p>`;
