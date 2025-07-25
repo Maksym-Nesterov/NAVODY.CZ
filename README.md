@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NAVODKA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background-color: #1e1e1e; color: #fff; font-family: monospace; font-size: 12px; padding: 10px; }
+    input, button { margin: 5px; padding: 5px; font-size: 12px; }
+    .group { padding: 10px; margin: 10px 0; border-radius: 5px; line-height: 1.4; transition: background 0.3s ease; }
+    .first { background: #2e3b4e; color: #fff; border-left: 4px solid #FFD700; }
+    .sh { background: #005f5f; color: #b3ffff; border-left: 4px solid #00CED1; }
+    .il { background: #FF8C00; color: #fff; border-left: 4px solid #FF8C00; }
+    .al { background: #004d00; color: #b3ffb3; border-left: 4px solid #32CD32; }
+    .ek { background: #3a522d; color: #ccffcc; border-left: 4px solid #66ff66; }
+    .other { background: #3a3a3a; color: #ccc; border-left: 4px solid #FFD700; }
+    .key { font-weight: bold; display: inline-block; min-width: 100px; vertical-align: top; word-break: break-word; }
+    .value { word-break: break-word; }
+    a { color: #FFD700; }
+    .green-block { border: 1px solid lime; padding: 3px; margin: 2px; border-radius: 3px; background: #004d00; color: #ADFF2F; }
+  </style>
+</head>
+<body>
+  <h2 style="font-size:14px;">Введи MA (наприклад: 169499):</h2>
+  <input type="text" id="maInput" placeholder="MA">
+  <button id="findBtn">Пошук</button>
+  <br>
+  <div id="output"></div>
+
+  <script>
+    const GIST_RAW_URL = "https://gist.githubusercontent.com/Maksym-Nesterov/17c348b49eafbf6ff47420c2727ca454/raw";
+    let data = [];
+
+    async function loadJSON(url) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        data = await resp.json();
+        document.getElementById('output').innerHTML = `<p style="color:lime;">Автоматично завантажено ${data.length} записів.</p>`;
+      } catch (err) {
+        document.getElementById('output').innerHTML = `<p style="color:red;">Помилка завантаження JSON: ${err}</p>`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('findBtn').addEventListener('click', findMA);
+      loadJSON(GIST_RAW_URL);
+    });
+
+    function findMA() {
+      if (data.length === 0) {
+        document.getElementById('output').innerHTML = `<p style="color:red;">Дані ще не завантажені. Спробуйте пізніше.</p>`;
+        return;
+      }
+
+      const ma = document.getElementById('maInput').value.trim();
+      const outputDiv = document.getElementById('output');
+      outputDiv.innerHTML = '';
+
+      if (!ma) {
+        outputDiv.innerHTML = `<p>Введи MA!</p>`;
+        return;
+      }
+
+      const matches = data.filter(d => String(d.MA).trim() === ma);
+      if (matches.length === 0) {
+        outputDiv.innerHTML = `<p>MA ${ma} не знайдено.</p>`;
+        return;
+      }
+
+      const cableSet = new Set();
+      const cables = [];
+
+      matches.forEach(m => {
+        const raw = (m['kabely '] || m['kabel'] || '').trim();
+        const norm = raw.toLowerCase();
+        if (norm && !cableSet.has(norm)) {
+          cableSet.add(norm);
+          cables.push(raw);
+        }
+      });
+      
+
+      if (cables.length > 1) {
+        outputDiv.innerHTML = `<p>Знайдено кілька кабелів для MA ${ma}:</p>`;
+        cables.forEach(c => {
+          const btn = document.createElement('button');
+          btn.textContent = c;
+          btn.onclick = () => showData(ma, c);
+          outputDiv.appendChild(btn);
+        });
+      } else {
+        showData(ma, cables[0]);
+      }
+    }
+
+    function showData(ma, cable) {
+      const outputDiv = document.getElementById('output');
+      const records = data.filter(d => String(d.MA).trim() === ma && (!cable || d['kabely '] === cable || d['kabel'] === cable));
+      outputDiv.innerHTML = '';
+
+      records.forEach(record => {
+        let first = '', sh = '', il = '', al = '', ek = '', other = '';
+
+        for (const [key, valueRaw] of Object.entries(record)) {
+          const value = String(valueRaw ?? '').replace(/\.0$/, '');
+          const k = key.toLowerCase().replace(/\s+/g, '');
+          const kNorm = k.replace(/ř/g, 'r').replace(/_/g, '');
+
+          let line = `<div><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
+
+          if (k.includes('foto') && value) {
+            line = `<div><span class="key">${key}:</span> <span class="value"><a href="${value}" target="_blank">Відкрити фото</a></span></div>`;
+          }
+
+          if (["referencnirez", "nulovyrez", "mirax"].includes(kNorm)) {
+            line = `<div class="green-block"><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
+          } else if (["modul", "kavita"].includes(kNorm)) {
+            line = `<div><span class="key">${key}:</span> <span class="value" style="color:red;">${value}</span></div>`;
+          }
+
+          if (["product", "ma", "typ", "folia", "kabely", "mps", "фото", "nazev"].some(x => k.includes(x))) {
+            first += line;
+          } else if (k.includes('sh') || k.includes('měřičekroužek') || k.includes('mericekrouzek')) {
+            sh += line;
+          } else if (
+            k.includes('il') ||
+            k.includes('měřičеihlavýškasirka') ||
+            k.includes('mericihlavyskasisirka') ||
+            k.includes('měřičеihlavyskasisirka')
+          ) {
+            il += line;
+          } else if (
+            k === 'al' ||
+            k.startsWith('al_') ||
+            k.includes('výška/šířka') ||
+            k.includes('rozmerzapustenekontakty')
+          ) {
+            al += line;
+          } else if (k.startsWith('ek')) {
+            ek += line;
+          } else {
+            other += line;
+          }
+        }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NAVODKA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { background-color: #1e1e1e; color: #fff; font-family: monospace; font-size: 12px; padding: 10px; }
+    input, button { margin: 5px; padding: 5px; font-size: 12px; }
+    .group { padding: 10px; margin: 10px 0; border-radius: 5px; line-height: 1.4; transition: background 0.3s ease; }
+    .first { background: #2e3b4e; color: #fff; border-left: 4px solid #FFD700; }
+    .sh { background: #005f5f; color: #b3ffff; border-left: 4px solid #00CED1; }
+    .il { background: #FF8C00; color: #fff; border-left: 4px solid #FF8C00; }
+    .al { background: #004d00; color: #b3ffb3; border-left: 4px solid #32CD32; }
+    .ek { background: #3a522d; color: #ccffcc; border-left: 4px solid #66ff66; }
+    .other { background: #3a3a3a; color: #ccc; border-left: 4px solid #FFD700; }
+    .key { font-weight: bold; display: inline-block; min-width: 100px; vertical-align: top; word-break: break-word; }
+    .value { word-break: break-word; }
+    a { color: #FFD700; }
+    .green-block { border: 1px solid lime; padding: 3px; margin: 2px; border-radius: 3px; background: #004d00; color: #ADFF2F; }
+  </style>
+</head>
+<body>
+  <h2 style="font-size:14px;">Введи MA (наприклад: 169499):</h2>
+  <input type="text" id="maInput" placeholder="MA">
+  <button id="findBtn">Пошук</button>
+  <br>
+  <div id="output"></div>
+
+  <script>
+    const GIST_RAW_URL = "https://gist.githubusercontent.com/Maksym-Nesterov/17c348b49eafbf6ff47420c2727ca454/raw";
+    let data = [];
+
+    async function loadJSON(url) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        data = await resp.json();
+        document.getElementById('output').innerHTML = `<p style="color:lime;">Автоматично завантажено ${data.length} записів.</p>`;
+      } catch (err) {
+        document.getElementById('output').innerHTML = `<p style="color:red;">Помилка завантаження JSON: ${err}</p>`;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('findBtn').addEventListener('click', findMA);
+      loadJSON(GIST_RAW_URL);
+    });
+
+    function findMA() {
+      if (data.length === 0) {
+        document.getElementById('output').innerHTML = `<p style="color:red;">Дані ще не завантажені. Спробуйте пізніше.</p>`;
+        return;
+      }
+
+      const ma = document.getElementById('maInput').value.trim();
+      const outputDiv = document.getElementById('output');
+      outputDiv.innerHTML = '';
+
+      if (!ma) {
+        outputDiv.innerHTML = `<p>Введи MA!</p>`;
+        return;
+      }
+
+      const matches = data.filter(d => String(d.MA).trim() === ma);
+      if (matches.length === 0) {
+        outputDiv.innerHTML = `<p>MA ${ma} не знайдено.</p>`;
+        return;
+      }
+
+      const cableSet = new Set();
+      const cables = [];
+
+      matches.forEach(m => {
+        const raw = (m['kabely '] || m['kabel'] || '').trim();
+        const norm = raw.toLowerCase();
+        if (norm && !cableSet.has(norm)) {
+          cableSet.add(norm);
+          cables.push(raw);
+        }
+      });
+      
+
+      if (cables.length > 1) {
+        outputDiv.innerHTML = `<p>Знайдено кілька кабелів для MA ${ma}:</p>`;
+        cables.forEach(c => {
+          const btn = document.createElement('button');
+          btn.textContent = c;
+          btn.onclick = () => showData(ma, c);
+          outputDiv.appendChild(btn);
+        });
+      } else {
+        showData(ma, cables[0]);
+      }
+    }
+
+    function showData(ma, cable) {
+      const outputDiv = document.getElementById('output');
+      const records = data.filter(d => String(d.MA).trim() === ma && (!cable || d['kabely '] === cable || d['kabel'] === cable));
+      outputDiv.innerHTML = '';
+
+      records.forEach(record => {
+        let first = '', sh = '', il = '', al = '', ek = '', other = '';
+
+        for (const [key, valueRaw] of Object.entries(record)) {
+          const value = String(valueRaw ?? '').replace(/\.0$/, '');
+          const k = key.toLowerCase().replace(/\s+/g, '');
+          const kNorm = k.replace(/ř/g, 'r').replace(/_/g, '');
+
+          let line = `<div><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
+
+          if (k.includes('foto') && value) {
+            line = `<div><span class="key">${key}:</span> <span class="value"><a href="${value}" target="_blank">Відкрити фото</a></span></div>`;
+          }
+
+          if (["referencnirez", "nulovyrez", "mirax"].includes(kNorm)) {
+            line = `<div class="green-block"><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
+          } else if (["modul", "kavita"].includes(kNorm)) {
+            line = `<div><span class="key">${key}:</span> <span class="value" style="color:red;">${value}</span></div>`;
+          }
+
+          if (["product", "ma", "typ", "folia", "kabely", "mps", "фото", "nazev"].some(x => k.includes(x))) {
+            first += line;
+          } else if (k.includes('sh') || k.includes('měřičekroužek') || k.includes('mericekrouzek')) {
+            sh += line;
+          } else if (
+            k.includes('il') ||
+            k.includes('měřičеihlavýškasirka') ||
+            k.includes('mericihlavyskasisirka') ||
+            k.includes('měřičеihlavyskasisirka')
+          ) {
+            il += line;
+          } else if (
+            k === 'al' ||
+            k.startsWith('al_') ||
+            k.includes('výška/šířka') ||
+            k.includes('rozmerzapustenekontakty')
+          ) {
+            al += line;
+          } else if (k.startsWith('ek')) {
+            ek += line;
+          } else {
+            other += line;
+          }
+        }
+
+        outputDiv.innerHTML += `
+          <div class="group first">${first}</div>
+          <div class="group sh">${sh}</div>
+          <div class="group il">${il}</div>
+          <div class="group al">${al}</div>
+          <div class="group ek">${ek}</div>
+          <div class="group other">${other}</div>`;
+      });
+    }
+  </script>
+</body>
+</html>
+
+        outputDiv.innerHTML += `
+          <div class="group first">${first}</div>
+          <div class="group sh">${sh}</div>
+          <div class="group il">${il}</div>
+          <div class="group al">${al}</div>
+          <div class="group ek">${ek}</div>
+          <div class="group other">${other}</div>`;
+      });
+    }
+  </script>
+</body>
+</html>
