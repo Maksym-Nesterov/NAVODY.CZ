@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The information provided on the website is inaccurate.</title>
+  <title>MA Data Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { background-color: #1e1e1e; color: #fff; font-family: monospace; font-size: 12px; padding: 10px; }
-    input, button { margin: 5px; padding: 5px; font-size: 12px; }
+    input, button, select { margin: 5px; padding: 5px; font-size: 12px; }
     .group { padding: 10px; margin: 10px 0; border-radius: 5px; line-height: 1.4; transition: background 0.3s ease; }
     .first { background: #2e3b4e; color: #fff; border-left: 4px solid #FFD700; }
     .sh { background: #005f5f; color: #b3ffff; border-left: 4px solid #00CED1; }
@@ -24,18 +24,28 @@
   <h2 style="font-size:14px;">Введи MA (наприклад: 169499):</h2>
   <input type="text" id="maInput" placeholder="MA">
   <button id="findBtn">Пошук</button>
+  <button id="alarmBtn">ALARMY</button>
   <br>
+  <div id="alarm-output" class="group al"></div>
+  <div id="solution-output"></div>
   <div id="output"></div>
 
   <script>
-    const GIST_RAW_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw";
+    const GIST_RAW_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/data.json";
+    const ALARMS_URL = "https://gist.githubusercontent.com/PodporaSerizovac/6e4412c72960d9296cf03551c75981f5/raw/alarms.json";
     let data = [];
+    let alarmData = {};
 
     async function loadJSON(url) {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return resp.json();
+    }
+
+    async function loadAllData() {
       try {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        data = await resp.json();
+        data = await loadJSON(GIST_RAW_URL);
+        alarmData = await loadJSON(ALARMS_URL);
         document.getElementById('output').innerHTML = `<p style="color:lime;">Автоматично завантажено ${data.length} записів.</p>`;
       } catch (err) {
         document.getElementById('output').innerHTML = `<p style="color:red;">Помилка завантаження JSON: ${err}</p>`;
@@ -44,8 +54,32 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       document.getElementById('findBtn').addEventListener('click', findMA);
-      loadJSON(GIST_RAW_URL);
+      document.getElementById('alarmBtn').addEventListener('click', showAlarmDropdown);
+      loadAllData();
     });
+
+    function showAlarmDropdown() {
+      const alarmDiv = document.getElementById('alarm-output');
+      const solutionDiv = document.getElementById('solution-output');
+      solutionDiv.innerHTML = '';
+
+      const select = document.createElement('select');
+      select.innerHTML = `<option value="">-- Вибери тривогу --</option>` +
+        Object.keys(alarmData).map(a => `<option value="${a}">${a}</option>`).join('');
+
+      select.addEventListener('change', e => {
+        const selected = e.target.value;
+        if (selected && alarmData[selected]) {
+          solutionDiv.innerHTML = '<div class="group al"><span class="key">Рішення:</span><ul>' +
+            alarmData[selected].map(sol => `<li>${sol}</li>`).join('') + '</ul></div>';
+        } else {
+          solutionDiv.innerHTML = '';
+        }
+      });
+
+      alarmDiv.innerHTML = '<div class="key">Тривога:</div>';
+      alarmDiv.appendChild(select);
+    }
 
     function findMA() {
       if (data.length === 0) {
@@ -124,9 +158,9 @@
             sh += line;
           } else if (
             k.includes('il') ||
-            k.includes('měřičeihlavýškasirka') ||
+            k.includes('měřičеihlavýškasirka') ||
             k.includes('mericihlavyskasisirka') ||
-            k.includes('měřičeihlavyskasisirka')
+            k.includes('měřičеihlavyskasisirka')
           ) {
             il += line;
           } else if (
