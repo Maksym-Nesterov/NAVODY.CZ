@@ -32,7 +32,7 @@
 
   <script>
     const GIST_RAW_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/data.json";
-   const ALARMS_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/cd6187718f3aa31f479710037b9577b000f71164/alarm.json";
+    const ALARMS_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/cd6187718f3aa31f479710037b9577b000f71164/alarm.json";
     let data = [];
     let alarmData = {};
 
@@ -45,7 +45,28 @@
     async function loadAllData() {
       try {
         data = await loadJSON(GIST_RAW_URL);
-        alarmData = await loadJSON(ALARMS_URL);
+        const alarmsRaw = await loadJSON(ALARMS_URL);
+
+        // Перетворення сирих даних у структуру
+        alarmData = {};
+        for (const item of alarmsRaw) {
+          const code = item['Kód'] || item['Kод'] || 'UNKNOWN';
+          const station = item['Stanice'] || '';
+          const desc = item['Опис помилки'] || '';
+
+          if (!alarmData[code]) {
+            alarmData[code] = { station, description: '', solutions: [] };
+          }
+
+          if (desc && desc.toLowerCase().includes('рішення')) {
+            continue;
+          } else if (!item.kod && !alarmData[code].description) {
+            alarmData[code].description = desc;
+          } else if (item.kod && desc) {
+            alarmData[code].solutions.push(desc);
+          }
+        }
+
         document.getElementById('output').innerHTML = `<p style="color:lime;">Автоматично завантажено ${data.length} записів.</p>`;
       } catch (err) {
         document.getElementById('output').innerHTML = `<p style="color:red;">Помилка завантаження JSON: ${err}</p>`;
@@ -65,13 +86,18 @@
 
       const select = document.createElement('select');
       select.innerHTML = `<option value="">-- Вибери тривогу --</option>` +
-        Object.keys(alarmData).map(a => `<option value="${a}">${a}</option>`).join('');
+        Object.entries(alarmData).map(([code, entry]) => `<option value="${code}">${code} - ${entry.description}</option>`).join('');
 
       select.addEventListener('change', e => {
         const selected = e.target.value;
         if (selected && alarmData[selected]) {
-          solutionDiv.innerHTML = '<div class="group al"><span class="key">Рішення:</span><ul>' +
-            alarmData[selected].map(sol => `<li>${sol}</li>`).join('') + '</ul></div>';
+          const entry = alarmData[selected];
+          solutionDiv.innerHTML = '<div class="group al">' +
+            `<div><span class="key">Станція:</span> <span class="value">${entry.station}</span></div>` +
+            `<div><span class="key">Опис:</span> <span class="value">${entry.description}</span></div>` +
+            `<div><span class="key">Рішення:</span><ul>` +
+            entry.solutions.map(sol => `<li>${sol}</li>`).join('') +
+            '</ul></div></div>';
         } else {
           solutionDiv.innerHTML = '';
         }
