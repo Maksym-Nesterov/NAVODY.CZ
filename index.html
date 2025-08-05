@@ -1,217 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>NAVODKA</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { background-color: #1e1e1e; color: #fff; font-family: monospace; font-size: 12px; padding: 10px; }
-    input, button, select { margin: 5px; padding: 5px; font-size: 12px; }
-    .group { padding: 10px; margin: 10px 0; border-radius: 5px; line-height: 1.4; transition: background 0.3s ease; }
-    .first { background: #2e3b4e; color: #fff; border-left: 4px solid #FFD700; }
-    .sh { background: #005f5f; color: #b3ffff; border-left: 4px solid #00CED1; }
-    .il { background: #FF8C00; color: #fff; border-left: 4px solid #FF8C00; }
-    .al { background: #004d00; color: #b3ffb3; border-left: 4px solid #32CD32; }
-    .ek { background: #003322; color: #c2f0c2; border-left: 4px solid #66ff66; }
-    .other { background: #3a3a3a; color: #ccc; border-left: 4px solid #FFD700; }
-    .key { font-weight: bold; display: inline-block; min-width: 100px; vertical-align: top; word-break: break-word; }
-    .value { word-break: break-word; }
-    a { color: #FFD700; }
-    .green-block { border: 1px solid lime; padding: 3px; margin: 2px; border-radius: 3px; background: #004d00; color: #ADFF2F; }
-  </style>
+<meta charset="UTF-8">
+<title>Module Search Fix</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { background-color: #1e1e1e; color: #fff; font-family: monospace; font-size: 12px; padding: 10px; }
+  .group { padding: 10px; margin: 10px 0; border-radius: 5px; background: #2e3b4e; border-left: 4px solid #FFD700; }
+  .key { font-weight: bold; display: inline-block; min-width: 100px; }
+  .value { word-break: break-word; }
+</style>
 </head>
 <body>
-  <h2 style="font-size:14px;">Введи MA (наприклад: 169499):</h2>
-  <input type="text" id="maInput" placeholder="MA">
-  <button id="findBtn">Пошук</button>
-  <button id="alarmBtn">ALARMY</button>
-  <br>
-  <div id="alarm-output" class="group al"></div>
-  <div id="solution-output"></div>
-  <div id="output"></div>
+<h2>Пошук модуля</h2>
+<input type="text" id="moduleInput" placeholder="Введи артикл або šteker">
+<button onclick="findModule()">Пошук модуля</button>
+<div id="module-output"></div>
+<script>
+let moduleData = [];
+const MODULE_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/58b3002b4830d6c2c71fd74e597e39d303fc54ba/modul.json";
 
-  <script>
-    const GIST_RAW_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/data.json";
-    const ALARMS_URL = "https://gist.githubusercontent.com/PodporaSerizovac/17c348b49eafbf6ff47420c2727ca454/raw/cd6187718f3aa31f479710037b9577b000f71164/alarm.json";
-    let data = [];
-    let alarmData = {};
+async function loadModules() {
+  try {
+    const resp = await fetch(MODULE_URL);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    moduleData = await resp.json();
+    console.log("Modules loaded:", moduleData.length);
+  } catch (err) {
+    console.error("Помилка завантаження модулів:", err);
+  }
+}
 
-    async function loadJSON(url) {
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      return resp.json();
-    }
+function findModule() {
+  const input = document.getElementById('moduleInput').value.trim().toLowerCase();
+  const moduleDiv = document.getElementById('module-output');
+  moduleDiv.innerHTML = '';
+  if (!input) return moduleDiv.innerHTML = `<p>Введи артикл або šteker!</p>`;
 
-    async function loadAllData() {
-      try {
-        data = await loadJSON(GIST_RAW_URL);
-        const alarmsRaw = await loadJSON(ALARMS_URL);
+  const matches = moduleData.filter(m => {
+    const artikl = String(m['artikl'] || m['Artikl'] || '').toLowerCase();
+    const steker = String(m['steker'] || m['šteker'] || m['Šteker'] || '').toLowerCase();
+    return artikl === input || steker === input;
+  });
 
-        // Перетворення сирих даних у структуру
-        alarmData = {};
-        for (const item of alarmsRaw) {
-          const code = item['Kód'] || item['Kод'] || 'UNKNOWN';
-          const station = item['Stanice'] || '';
-          const desc = item['Опис помилки'] || '';
+  if (matches.length === 0) return moduleDiv.innerHTML = `<p>Модуль ${input} не знайдено.</p>`;
 
-          if (!alarmData[code]) {
-            alarmData[code] = { station, description: '', solutions: [] };
-          }
+  moduleDiv.innerHTML = matches.map(m => `<div class="group">${Object.entries(m).map(([k,v]) => `<div><span class="key">${k}:</span> <span class="value">${v}</span></div>`).join('')}</div>`).join('');
+}
 
-          if (desc && desc.toLowerCase().includes('рішення')) {
-            continue;
-          } else if (!item.kod && !alarmData[code].description) {
-            alarmData[code].description = desc;
-          } else if (item.kod && desc) {
-            alarmData[code].solutions.push(desc);
-          }
-        }
-
-        document.getElementById('output').innerHTML = `<p style="color:lime;">Автоматично завантажено ${data.length} записів.</p>`;
-      } catch (err) {
-        document.getElementById('output').innerHTML = `<p style="color:red;">Помилка завантаження JSON: ${err}</p>`;
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('findBtn').addEventListener('click', findMA);
-      document.getElementById('alarmBtn').addEventListener('click', showAlarmDropdown);
-      loadAllData();
-    });
-
-    function showAlarmDropdown() {
-      const alarmDiv = document.getElementById('alarm-output');
-      const solutionDiv = document.getElementById('solution-output');
-      solutionDiv.innerHTML = '';
-
-      const select = document.createElement('select');
-      select.innerHTML = `<option value="">-- Вибери тривогу --</option>` +
-        Object.entries(alarmData).map(([code, entry]) => `<option value="${code}">${code} - ${entry.description}</option>`).join('');
-
-      select.addEventListener('change', e => {
-        const selected = e.target.value;
-        if (selected && alarmData[selected]) {
-          const entry = alarmData[selected];
-          solutionDiv.innerHTML = '<div class="group al">' +
-            `<div><span class="key">Станція:</span> <span class="value">${entry.station}</span></div>` +
-            `<div><span class="key">Опис:</span> <span class="value">${entry.description}</span></div>` +
-            `<div><span class="key">Рішення:</span><ul>` +
-            entry.solutions.map(sol => `<li>${sol}</li>`).join('') +
-            '</ul></div></div>';
-        } else {
-          solutionDiv.innerHTML = '';
-        }
-      });
-
-      alarmDiv.innerHTML = '<div class="key">Тривога:</div>';
-      alarmDiv.appendChild(select);
-    }
-
-    function findMA() {
-      if (data.length === 0) {
-        document.getElementById('output').innerHTML = `<p style="color:red;">Дані ще не завантажені. Спробуйте пізніше.</p>`;
-        return;
-      }
-
-      const ma = document.getElementById('maInput').value.trim();
-      const outputDiv = document.getElementById('output');
-      outputDiv.innerHTML = '';
-
-      if (!ma) {
-        outputDiv.innerHTML = `<p>Введи MA!</p>`;
-        return;
-      }
-
-      const matches = data.filter(d => String(d.MA).trim() === ma);
-      if (matches.length === 0) {
-        outputDiv.innerHTML = `<p>MA ${ma} не знайдено.</p>`;
-        return;
-      }
-
-      const cableSet = new Set();
-      const cables = [];
-
-      matches.forEach(m => {
-        const raw = (m['kabely '] || m['kabel'] || '').trim();
-        const norm = raw.toLowerCase();
-        if (norm && !cableSet.has(norm)) {
-          cableSet.add(norm);
-          cables.push(raw);
-        }
-      });
-
-      if (cables.length > 1) {
-        outputDiv.innerHTML = `<p>Знайдено кілька кабелів для MA ${ma}:</p>`;
-        cables.forEach(c => {
-          const btn = document.createElement('button');
-          btn.textContent = c;
-          btn.onclick = () => showData(ma, c);
-          outputDiv.appendChild(btn);
-        });
-      } else {
-        showData(ma, cables[0]);
-      }
-    }
-
-    function showData(ma, cable) {
-      const outputDiv = document.getElementById('output');
-      const records = data.filter(d => String(d.MA).trim() === ma && (!cable || d['kabely '] === cable || d['kabel'] === cable));
-      outputDiv.innerHTML = '';
-
-      records.forEach(record => {
-        let first = '', sh = '', il = '', al = '', ek = '', other = '';
-
-        for (const [key, valueRaw] of Object.entries(record)) {
-          const value = String(valueRaw ?? '').replace(/\.0$/, '');
-          const k = key.toLowerCase().replace(/\s+/g, '');
-          const kNorm = k.replace(/ř/g, 'r').replace(/_/g, '');
-
-          let line = `<div><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
-
-          if (k.includes('foto') && value) {
-            line = `<div><span class="key">${key}:</span> <span class="value"><a href="${value}" target="_blank">Відкрити фото</a></span></div>`;
-          }
-
-          if (["referencnirez", "nulovyrez", "mirax"].includes(kNorm)) {
-            line = `<div class="green-block"><span class="key">${key}:</span> <span class="value">${value}</span></div>`;
-          } else if (["modul", "kavita"].includes(kNorm)) {
-            line = `<div><span class="key">${key}:</span> <span class="value" style="color:red;">${value}</span></div>`;
-          }
-
-          if (["product", "ma", "typ", "folia", "kabely", "mps", "фото", "nazev"].some(x => k.includes(x))) {
-            first += line;
-          } else if (k.includes('sh') || k.includes('měřičekroužek') || k.includes('mericekrouzek')) {
-            sh += line;
-          } else if (
-            k.includes('il') ||
-            k.includes('měřičеihlavýškasirka') ||
-            k.includes('mericihlavyskasisirka') ||
-            k.includes('měřičеihlavyskasisirka')
-          ) {
-            il += line;
-          } else if (
-            k === 'al' ||
-            k.startsWith('al_') ||
-            k.includes('výška/šířka') ||
-            k.includes('rozmerzapustenekontakty')
-          ) {
-            al += line;
-          } else if (k.startsWith('ek_')) {
-            ek += line;
-          } else {
-            other += line;
-          }
-        }
-
-        outputDiv.innerHTML += `
-          <div class="group first">${first}</div>
-          <div class="group sh">${sh}</div>
-          <div class="group il">${il}</div>
-          <div class="group al">${al}</div>
-          <div class="group ek">${ek}</div>
-          <div class="group other">${other}</div>`;
-      });
-    }
-  </script>
+window.addEventListener('DOMContentLoaded', loadModules);
+</script>
 </body>
 </html>
